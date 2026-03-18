@@ -44,7 +44,7 @@ def index():
     JOIN estados e ON c.estado_id = e.id
     LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
     LEFT JOIN carreras ca ON uc.carrera_id = ca.id
-    ORDER BY u.nombre
+    ORDER BY u.id DESC
     """
 
     cursor.execute(query)
