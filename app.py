@@ -8,72 +8,86 @@ app = Flask(__name__)
 # TOKEN
 TOKEN = "profe123"
 
-# Conexión a Railway MySQL
+# 🔌 Conexión a Railway MySQL
 def get_connection():
-    return pymysql.connect(
-        host="caboose.proxy.rlwy.net",
-        port=48033,
-        user="root",
-        password="WCgIxNYZwDigbFRCaOsXANJOTHyBVAUl",
-        database="railway",
-        cursorclass=pymysql.cursors.DictCursor
-    )
+    try:
+        connection = pymysql.connect(
+            host="caboose.proxy.rlwy.net",
+            port=48033,
+            user="root",
+            password="WCgIxNYZwDigbFRCaOsXANJOTHyBVAUl",
+            database="railway",
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=10
+        )
+        return connection
+    except Exception as e:
+        print("❌ ERROR CONECTANDO A MYSQL:", e)
+        raise
 
 @app.route("/")
 def index():
     token = request.args.get("token")
 
-    # 🔐 Validar token
+    # 🔐 VALIDAR TOKEN
     if token != TOKEN:
         return {"error": "No autorizado"}, 401
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    query = """
-    SELECT 
-        u.id as universidad_id,
-        u.nombre as universidad,
-        u.tipo_institucion,
-        u.modalidad,
-        c.nombre as ciudad,
-        e.nombre as estado,
-        ca.nombre as carrera
-    FROM universidades u
-    JOIN ciudades c ON u.ciudad_id = c.id
-    JOIN estados e ON c.estado_id = e.id
-    LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
-    LEFT JOIN carreras ca ON uc.carrera_id = ca.id
-    ORDER BY u.id DESC
-    """
+        query = """
+        SELECT 
+            u.id as universidad_id,
+            u.nombre as universidad,
+            u.tipo_institucion,
+            u.modalidad,
+            c.nombre as ciudad,
+            e.nombre as estado,
+            ca.nombre as carrera
+        FROM universidades u
+        JOIN ciudades c ON u.ciudad_id = c.id
+        JOIN estados e ON c.estado_id = e.id
+        LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
+        LEFT JOIN carreras ca ON uc.carrera_id = ca.id
+        ORDER BY u.id DESC
+        """
 
-    cursor.execute(query)
-    resultados = cursor.fetchall()
-    conn.close()
+        cursor.execute(query)
+        resultados = cursor.fetchall()
+        conn.close()
 
-    universidades = {}
+        universidades = {}
 
-    for fila in resultados:
-        uid = fila["universidad_id"]
+        for fila in resultados:
+            uid = fila["universidad_id"]
 
-        if uid not in universidades:
-            universidades[uid] = {
-                "nombre": fila["universidad"],
-                "ciudad": fila["ciudad"],
-                "estado": fila["estado"],
-                "tipo": fila["tipo_institucion"],
-                "modalidad": fila["modalidad"],
-                "carreras": []
-            }
+            if uid not in universidades:
+                universidades[uid] = {
+                    "nombre": fila["universidad"],
+                    "ciudad": fila["ciudad"],
+                    "estado": fila["estado"],
+                    "tipo": fila["tipo_institucion"],
+                    "modalidad": fila["modalidad"],
+                    "carreras": []
+                }
 
-        if fila["carrera"]:
-            universidades[uid]["carreras"].append(fila["carrera"])
+            if fila["carrera"]:
+                universidades[uid]["carreras"].append(fila["carrera"])
 
-    return Response(
-        json.dumps(list(universidades.values()), indent=4, ensure_ascii=False),
-        mimetype="application/json"
-    )
+        return Response(
+            json.dumps(list(universidades.values()), indent=4, ensure_ascii=False),
+            mimetype="application/json"
+        )
 
+    except Exception as e:
+        # 🔥 ESTO ES CLAVE PARA DEBUG EN RENDER
+        print("❌ ERROR EN LA API:", e)
+        return {"error": str(e)}, 500
+
+
+# 🚀 Render usa esto automáticamente
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
