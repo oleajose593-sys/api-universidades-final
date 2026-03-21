@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-# TOKEN
+# 🔐 TOKEN DE ACCESO
 TOKEN = "profe123"
 
 # 🔌 Conexión a Railway MySQL
@@ -37,7 +37,6 @@ def index():
         conn = get_connection()
         cursor = conn.cursor()
 
-        # 🔥 QUERY CORREGIDO
         query = """
         SELECT 
             u.id as universidad_id,
@@ -48,18 +47,18 @@ def index():
             e.nombre as estado,
             ca.nombre as carrera
         FROM universidades u
-        LEFT JOIN ciudades c ON u.ciudad_id = c.id
-        LEFT JOIN estados e ON c.estado_id = e.id
+        JOIN ciudades c ON u.ciudad_id = c.id
+        JOIN estados e ON c.estado_id = e.id
         LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
         LEFT JOIN carreras ca ON uc.carrera_id = ca.id
-        ORDER BY u.nombre ASC
+        WHERE u.publicado = TRUE AND u.eliminado = FALSE
+        ORDER BY u.id DESC
         """
 
         cursor.execute(query)
         resultados = cursor.fetchall()
         conn.close()
 
-        # 🔄 AGRUPAR CARRERAS
         universidades = {}
 
         for fila in resultados:
@@ -78,7 +77,6 @@ def index():
             if fila["carrera"]:
                 universidades[uid]["carreras"].append(fila["carrera"])
 
-        # 📦 RESPUESTA JSON
         return Response(
             json.dumps(list(universidades.values()), indent=4, ensure_ascii=False),
             mimetype="application/json"
@@ -89,7 +87,7 @@ def index():
         return {"error": str(e)}, 500
 
 
-# 🚀 Render usa esto automáticamente
+# 🚀 Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
