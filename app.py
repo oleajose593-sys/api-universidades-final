@@ -51,7 +51,7 @@ def index():
         JOIN estados e ON c.estado_id = e.id
         LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
         LEFT JOIN carreras ca ON uc.carrera_id = ca.id
-        WHERE u.publicado = TRUE AND u.eliminado = FALSE
+        WHERE u.publicado = TRUE
         ORDER BY u.id DESC
         """
 
