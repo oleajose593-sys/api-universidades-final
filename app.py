@@ -29,6 +29,7 @@ def get_connection():
 def index():
     token = request.args.get("token")
 
+    # 🔐 VALIDAR TOKEN
     if token != TOKEN:
         return {"error": "No autorizado"}, 401
 
@@ -36,14 +37,57 @@ def index():
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM universidades LIMIT 5;")
-        data = cursor.fetchall()
+        # 🔥 QUERY CORREGIDO
+        query = """
+        SELECT 
+            u.id as universidad_id,
+            u.nombre as universidad,
+            u.tipo_institucion,
+            u.modalidad,
+            c.nombre as ciudad,
+            e.nombre as estado,
+            ca.nombre as carrera
+        FROM universidades u
+        LEFT JOIN ciudades c ON u.ciudad_id = c.id
+        LEFT JOIN estados e ON c.estado_id = e.id
+        LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
+        LEFT JOIN carreras ca ON uc.carrera_id = ca.id
+        ORDER BY u.nombre ASC
+        """
+
+        cursor.execute(query)
+        resultados = cursor.fetchall()
         conn.close()
 
-        return data
+        # 🔄 AGRUPAR CARRERAS
+        universidades = {}
+
+        for fila in resultados:
+            uid = fila["universidad_id"]
+
+            if uid not in universidades:
+                universidades[uid] = {
+                    "nombre": fila["universidad"],
+                    "ciudad": fila["ciudad"],
+                    "estado": fila["estado"],
+                    "tipo": fila["tipo_institucion"],
+                    "modalidad": fila["modalidad"],
+                    "carreras": []
+                }
+
+            if fila["carrera"]:
+                universidades[uid]["carreras"].append(fila["carrera"])
+
+        # 📦 RESPUESTA JSON
+        return Response(
+            json.dumps(list(universidades.values()), indent=4, ensure_ascii=False),
+            mimetype="application/json"
+        )
 
     except Exception as e:
+        print("❌ ERROR EN LA API:", e)
         return {"error": str(e)}, 500
+
 
 # 🚀 Render usa esto automáticamente
 if __name__ == "__main__":
