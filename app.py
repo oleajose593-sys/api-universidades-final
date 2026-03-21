@@ -37,6 +37,7 @@ def index():
         conn = get_connection()
         cursor = conn.cursor()
 
+        # 🔥 SOLO DATOS PUBLICADOS
         query = """
         SELECT 
             u.id as universidad_id,
@@ -51,6 +52,7 @@ def index():
         JOIN estados e ON c.estado_id = e.id
         LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
         LEFT JOIN carreras ca ON uc.carrera_id = ca.id
+        WHERE u.publicado = TRUE
         ORDER BY u.id DESC
         """
 
@@ -82,7 +84,6 @@ def index():
         )
 
     except Exception as e:
-        # 🔥 ESTO ES CLAVE PARA DEBUG EN RENDER
         print("❌ ERROR EN LA API:", e)
         return {"error": str(e)}, 500
 
