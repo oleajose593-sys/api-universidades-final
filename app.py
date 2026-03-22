@@ -2,93 +2,109 @@ from flask import Flask, Response, request
 import pymysql
 import json
 import os
+import jwt
+import datetime
 
 app = Flask(__name__)
 
-# 🔐 TOKEN DE ACCESO
-TOKEN = "profe123"
+SECRET_KEY = "clave_super_segura_123"
 
-# 🔌 Conexión a Railway MySQL
+# conexión a railway
 def get_connection():
-    try:
-        connection = pymysql.connect(
-            host="caboose.proxy.rlwy.net",
-            port=48033,
-            user="root",
-            password="WCgIxNYZwDigbFRCaOsXANJOTHyBVAUl",
-            database="railway",
-            cursorclass=pymysql.cursors.DictCursor,
-            connect_timeout=10
-        )
-        return connection
-    except Exception as e:
-        print("❌ ERROR CONECTANDO A MYSQL:", e)
-        raise
+    connection = pymysql.connect(
+        host="caboose.proxy.rlwy.net",
+        port=48033,
+        user="root",
+        password="WCgIxNYZwDigbFRCaOsXANJOTHyBVAUl",
+        database="railway",
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    return connection
 
+
+# generar token
+@app.route("/login")
+def login():
+
+    payload = {
+        "user": "cristal",
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    }
+
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+    return {
+        "token": token
+    }
+
+
+# endpoint principal
 @app.route("/")
 def index():
+
     token = request.args.get("token")
 
-    # 🔐 VALIDAR TOKEN
-    if token != TOKEN:
-        return {"error": "No autorizado"}, 401
+    if not token:
+        return {"error": "Token requerido"}, 401
 
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
+        jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except:
+        return {"error": "Token inválido o expirado"}, 401
 
-        # 🔥 QUERY CORRECTA (NO FILTRAR eliminado)
-        query = """
-        SELECT 
-            u.id as universidad_id,
-            u.nombre as universidad,
-            u.tipo_institucion,
-            u.modalidad,
-            c.nombre as ciudad,
-            e.nombre as estado,
-            ca.nombre as carrera
-        FROM universidades u
-        JOIN ciudades c ON u.ciudad_id = c.id
-        JOIN estados e ON c.estado_id = e.id
-        LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
-        LEFT JOIN carreras ca ON uc.carrera_id = ca.id
-        WHERE u.publicado = TRUE
-        ORDER BY u.id DESC
-        """
+    conn = get_connection()
+    cursor = conn.cursor()
 
-        cursor.execute(query)
-        resultados = cursor.fetchall()
-        conn.close()
+    query = """
+    SELECT 
+        u.id as universidad_id,
+        u.nombre as universidad,
+        u.tipo_institucion,
+        u.modalidad,
+        c.nombre as ciudad,
+        e.nombre as estado,
+        ca.nombre as carrera
+    FROM universidades u
+    JOIN ciudades c ON u.ciudad_id = c.id
+    JOIN estados e ON c.estado_id = e.id
+    LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
+    LEFT JOIN carreras ca ON uc.carrera_id = ca.id
+    WHERE u.publicado = TRUE
+    ORDER BY u.id DESC
+    """
 
-        universidades = {}
+    cursor.execute(query)
+    resultados = cursor.fetchall()
 
-        for fila in resultados:
-            uid = fila["universidad_id"]
+    conn.close()
 
-            if uid not in universidades:
-                universidades[uid] = {
-                    "nombre": fila["universidad"],
-                    "ciudad": fila["ciudad"],
-                    "estado": fila["estado"],
-                    "tipo": fila["tipo_institucion"],
-                    "modalidad": fila["modalidad"],
-                    "carreras": []
-                }
+    universidades = {}
 
-            if fila["carrera"]:
-                universidades[uid]["carreras"].append(fila["carrera"])
+    for fila in resultados:
 
-        return Response(
-            json.dumps(list(universidades.values()), indent=4, ensure_ascii=False),
-            mimetype="application/json"
-        )
+        uid = fila["universidad_id"]
 
-    except Exception as e:
-        print("❌ ERROR EN LA API:", e)
-        return {"error": str(e)}, 500
+        if uid not in universidades:
+            universidades[uid] = {
+                "nombre": fila["universidad"],
+                "ciudad": fila["ciudad"],
+                "estado": fila["estado"],
+                "tipo": fila["tipo_institucion"],
+                "modalidad": fila["modalidad"],
+                "carreras": []
+            }
+
+        if fila["carrera"]:
+            universidades[uid]["carreras"].append(fila["carrera"])
+
+    return Response(
+        json.dumps(list(universidades.values()), indent=4, ensure_ascii=False),
+        mimetype="application/json"
+    )
 
 
-# 🚀 Render
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 5000))
+
     app.run(host="0.0.0.0", port=port)
