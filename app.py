@@ -5,22 +5,31 @@ import os
 
 app = Flask(__name__)
 
+# 🔐 TOKEN DE ACCESO
 TOKEN = "profe123"
 
+# 🔌 Conexión a Railway MySQL
 def get_connection():
-    return pymysql.connect(
-        host="caboose.proxy.rlwy.net",
-        port=48033,
-        user="root",
-        password="WCgIxNYZwDigbFRCaOsXANJOTHyBVAUl",
-        database="railway",
-        cursorclass=pymysql.cursors.DictCursor
-    )
+    try:
+        connection = pymysql.connect(
+            host="caboose.proxy.rlwy.net",
+            port=48033,
+            user="root",
+            password="WCgIxNYZwDigbFRCaOsXANJOTHyBVAUl",
+            database="railway",
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=10
+        )
+        return connection
+    except Exception as e:
+        print("❌ ERROR CONECTANDO A MYSQL:", e)
+        raise
 
 @app.route("/")
 def index():
     token = request.args.get("token")
 
+    # 🔐 VALIDAR TOKEN
     if token != TOKEN:
         return {"error": "No autorizado"}, 401
 
@@ -28,6 +37,7 @@ def index():
         conn = get_connection()
         cursor = conn.cursor()
 
+        # 🔥 QUERY CORRECTA (NO FILTRAR eliminado)
         query = """
         SELECT 
             u.id as universidad_id,
@@ -42,7 +52,7 @@ def index():
         JOIN estados e ON c.estado_id = e.id
         LEFT JOIN universidad_carreras uc ON u.id = uc.universidad_id
         LEFT JOIN carreras ca ON uc.carrera_id = ca.id
-        WHERE u.publicado = TRUE AND u.eliminado = FALSE
+        WHERE u.publicado = TRUE
         ORDER BY u.id DESC
         """
 
@@ -74,9 +84,11 @@ def index():
         )
 
     except Exception as e:
-        print("❌ ERROR:", e)
+        print("❌ ERROR EN LA API:", e)
         return {"error": str(e)}, 500
 
+
+# 🚀 Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
